@@ -11,20 +11,17 @@ function [Tnp1] = nonlinJacobi(Tnm1, Tn, Sp, alph, dx, dy, dt, nx, ny)
 
   % loop over domain in column-major order for efficiency
   for col=2:nx-1
-    % get neighboring diffusivity
-    alphE = 0.5*(alph + alph); % TODO: add function call for nonlinear diffus.
-    alphW = 0.5*(alph + alph); % TODO: add function call for nonlinear diffus.
-
-    % determine neighbor coefficients
-    aE = alphE*Aew/dx;
-    aW = alphW*Aew/dx;
-
     for row=2:ny-1
       % get neighboring diffusivity
-      alphN = 0.5*(alph + alph); % TODO: add function call for nonlinear diffus.
-      alphS = 0.5*(alph + alph); % TODO: add function call for nonlinear diffus.
+      alphP = getDiffusivity(Tn(row,col));
+      alphE = 0.5*(getDiffusivity(Tn(row,col+1)) + alphP);
+      alphW = 0.5*(getDiffusivity(Tn(row,col-1)) + alphP);
+      alphN = 0.5*(getDiffusivity(Tn(row+1,col)) + alphP);
+      alphS = 0.5*(getDiffusivity(Tn(row-1,col)) + alphP);
       
       % determine neighbor coefficients
+      aE = alphE*Aew/dx;
+      aW = alphW*Aew/dx;
       aN = alphN*Ans/dy;
       aS = alphS*Ans/dy;
       aP = aE + aW + aN + aS - Sp(row,col);
