@@ -21,7 +21,7 @@ numDim = 2; % 2 for 2D, 3 for 3D
 
 dx = 0.005;
 dy = 0.005;
-dz = 0.005;
+dz = 0.25;
 Lx = 0.3;
 Ly = 0.3;
 Lz = 1;
@@ -31,7 +31,7 @@ nz = Lz/dz + 1;
 
 alph = 1.1234e-4;
 Tinit = 300;
-Tb1 = Tinit+25;
+Tb1 = Tinit+5;
 Tb2 = Tinit;
 Tb3 = Tinit;
 Tb4 = Tinit;
@@ -66,13 +66,13 @@ if (numDim == 2)
   Tnp1(1,1:nx) = Tb1;
   Tnp1(ny,1:nx) = Tb3;
 elseif (numDim == 3)
-  Tnp1 = ones(ny,nx,nz)*Tinit;
+  Tnp1 = ones(ny,nx,nz)*Tinit; % TODO: verify 3D column major access for y vs z
   Tnp1(:, 1, :) = Tb4;  % -yz plane
   Tnp1(:, nx, :) = Tb2; % +yz plane
-  Tnp1(1, :, :) = Tb1;  % -xz plane
-  Tnp1(ny, :, :) = Tb3; % +xz plane
   Tnp1(:, :, 1) = Tb5;  % -xy plane
   Tnp1(:, :, nz) = Tb6; % +xy plane
+  Tnp1(1, :, :) = Tb1;  % -xz plane
+  Tnp1(ny, :, :) = Tb3; % +xz plane
 end
 Tn = Tnp1;  % temperatures at current step
 Tnm1 = Tnp1;  % temperatures at previous step
@@ -91,29 +91,78 @@ dTV = 1;
 err = 0;
 time = 0;
 
+% setup laser flux for 3D
+if (numDim == 2)
+  Sp = zeros(ny, nx);
+  speed = 0.2;
+  angle = 0.5*pi;
+  diameter = 0.01;
+  power = 100;
+  % fluxDens = power/(dx*dy);
+  fluxDens = volFlux;
+  startX = 0.015;
+  startY = 0*Ly;
+  startTime = 0;
+  laser1 = laserSource2D(nx, ny, dx, dy, speed, angle, diameter, ...
+      fluxDens, startX, startY, startTime)
+
+  angle2 = 1*pi;
+  laser2 = laserSource2D(nx, ny, dx, dy, speed, angle2, diameter, ...
+      fluxDens, Lx, 3*dy, 0.1)
+
+  laser3 = laserSource2D(nx, ny, dx, dy, speed, -0.5*pi, diameter, ...
+      fluxDens, Lx-2*dx, Ly, 0.2)
+  laser4 = laserSource2D(nx, ny, dx, dy, speed, 0*pi, diameter, ...
+      fluxDens, 0, Ly-2*dy, 0.3)
+
+elseif (numDim == 3)
+  Sp = zeros(ny, nx, nz);
+  speed = 0.1;
+  angle = 0.0;
+  diameter = 0.02;
+  power = 100;
+  % fluxDens = power/(dx*dy);
+  fluxDens = volFlux;
+  startX = 0;
+  startY = 0.5*Ly;
+  startTime = 0;
+  laser1 = laserSource3D(nx, ny, nz, dx, dy, dz, speed, angle, diameter, ...
+      fluxDens, startX, startY, startTime)
+end
+
 tic
 while dTV >= tol
-  Sp = zeros(ny, nx);
-  Sp(round(ny/2), min(nx, floor(time/10)+2)) = volFlux;
-  Sp(round(ny/2)+1, min(nx, floor(time/10)+2)+1) = 0.25*volFlux;
-  Sp(round(ny/2)-1, min(nx, floor(time/10)+2)+1) = 0.25*volFlux;
-  Sp(round(ny/2)+1, min(nx, floor(time/10)+2)-1) = 0.25*volFlux;
-  Sp(round(ny/2)-1, min(nx, floor(time/10)+2)-1) = 0.25*volFlux;
-  Sp(round(ny/2)+1, min(nx, floor(time/10)+2)) = 0.5*volFlux;
-  Sp(round(ny/2)-1, min(nx, floor(time/10)+2)) = 0.5*volFlux;
-  Sp(round(ny/2), min(nx, floor(time/10)+2)-1) = 0.5*volFlux;
-  Sp(round(ny/2), min(nx, floor(time/10)+2)-1) = 0.5*volFlux;
-
-  if (mod(time,10) <= 5)
-    Sp(round(ny/4), min(nx, floor(time/10)+2)) = 2*volFlux;
-    Sp(round(ny/4)+1, min(nx, floor(time/10)+2)+1) = 0.25*2*volFlux;
-    Sp(round(ny/4)-1, min(nx, floor(time/10)+2)+1) = 0.25*2*volFlux;
-    Sp(round(ny/4)+1, min(nx, floor(time/10)+2)-1) = 0.25*2*volFlux;
-    Sp(round(ny/4)-1, min(nx, floor(time/10)+2)-1) = 0.25*2*volFlux;
-    Sp(round(ny/4)+1, min(nx, floor(time/10)+2)) = 0.5*2*volFlux;
-    Sp(round(ny/4)-1, min(nx, floor(time/10)+2)) = 0.5*2*volFlux;
-    Sp(round(ny/4), min(nx, floor(time/10)+2)-1) = 0.5*2*volFlux;
-    Sp(round(ny/4), min(nx, floor(time/10)+2)-1) = 0.5*2*volFlux;
+  if (numDim == 2)
+    Sp = zeros(ny, nx);
+    Sp = laser1.getFaceFluxAtTime(time*dt, Sp);
+    Sp = laser2.getFaceFluxAtTime(time*dt, Sp);
+    Sp = laser3.getFaceFluxAtTime(time*dt, Sp);
+    Sp = laser4.getFaceFluxAtTime(time*dt, Sp);
+%    Sp = zeros(ny, nx);
+%    Sp(round(ny/2), min(nx, floor(time/10)+2)) = volFlux;
+%    Sp(round(ny/2)+1, min(nx, floor(time/10)+2)+1) = 0.25*volFlux;
+%    Sp(round(ny/2)-1, min(nx, floor(time/10)+2)+1) = 0.25*volFlux;
+%    Sp(round(ny/2)+1, min(nx, floor(time/10)+2)-1) = 0.25*volFlux;
+%    Sp(round(ny/2)-1, min(nx, floor(time/10)+2)-1) = 0.25*volFlux;
+%    Sp(round(ny/2)+1, min(nx, floor(time/10)+2)) = 0.5*volFlux;
+%    Sp(round(ny/2)-1, min(nx, floor(time/10)+2)) = 0.5*volFlux;
+%    Sp(round(ny/2), min(nx, floor(time/10)+2)-1) = 0.5*volFlux;
+%    Sp(round(ny/2), min(nx, floor(time/10)+2)-1) = 0.5*volFlux;
+%
+%    if (mod(time,10) <= 5)
+%      Sp(round(ny/4), min(nx, floor(time/10)+2)) = 2*volFlux;
+%      Sp(round(ny/4)+1, min(nx, floor(time/10)+2)+1) = 0.25*2*volFlux;
+%      Sp(round(ny/4)-1, min(nx, floor(time/10)+2)+1) = 0.25*2*volFlux;
+%      Sp(round(ny/4)+1, min(nx, floor(time/10)+2)-1) = 0.25*2*volFlux;
+%      Sp(round(ny/4)-1, min(nx, floor(time/10)+2)-1) = 0.25*2*volFlux;
+%      Sp(round(ny/4)+1, min(nx, floor(time/10)+2)) = 0.5*2*volFlux;
+%      Sp(round(ny/4)-1, min(nx, floor(time/10)+2)) = 0.5*2*volFlux;
+%      Sp(round(ny/4), min(nx, floor(time/10)+2)-1) = 0.5*2*volFlux;
+%      Sp(round(ny/4), min(nx, floor(time/10)+2)-1) = 0.5*2*volFlux;
+%    end
+  elseif (numDim == 3)
+    Sp = zeros(ny, nx, nz);
+    Sp = laser1.getFaceFluxAtTime(time*dt, Sp);
   end
 
 %  Sp(round(ny/3), nx - min(nx, floor(time/10)+2)) = volFlux;
@@ -200,12 +249,16 @@ while dTV >= tol
       0.8*Tmax 0.75*Tmax 0.7*Tmax 0.65*Tmax 0.6*Tmax 0.55*Tmax 0.50*Tmax ...
       0.45*Tmax  0.40*Tmax 0.34*Tmax min(min(Tnp1))]);
   elseif (numDim==3)
-%    contourf(Tnp1(:,:,1), [0.99*Tmax 0.98*Tmax 0.96*Tmax 0.93*Tmax 0.90*Tmax 0.88*Tmax 0.84*Tmax ...
+    Tplane = squeeze(Tnp1(:, :, round(nz/2)));
+    contourf(Tplane, [0.99*Tmax 0.98*Tmax 0.96*Tmax 0.93*Tmax 0.90*Tmax 0.88*Tmax 0.84*Tmax ...
+      0.8*Tmax 0.75*Tmax 0.7*Tmax 0.65*Tmax 0.6*Tmax 0.55*Tmax 0.50*Tmax ...
+      0.45*Tmax]);
+%    contourf(Tplane, [0.99*Tmax 0.98*Tmax 0.96*Tmax 0.93*Tmax 0.90*Tmax 0.88*Tmax 0.84*Tmax ...
 %      0.8*Tmax 0.75*Tmax 0.7*Tmax 0.65*Tmax 0.6*Tmax 0.55*Tmax 0.50*Tmax ...
 %      0.45*Tmax  0.40*Tmax 0.34*Tmax min(min(Tnp1))]);
   end
   colorbar
-  caxis([300, 980])
+  caxis([300, 680])
   pause(0.05)
 
 end
