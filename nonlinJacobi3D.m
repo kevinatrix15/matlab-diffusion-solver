@@ -10,7 +10,7 @@ function [Tnp1] = nonlinJacobi(Tnm1, Tn, Sp, alph, dx, dy, dz, dt, nx, ny, nz)
   Vol = dx*dy*dz;
 
   % loop over domain in column-major order for efficiency
-  for lay=2:nz-1
+  for lay=2:nz
     for col=2:nx-1
       for row=2:ny-1
 
@@ -20,9 +20,22 @@ function [Tnp1] = nonlinJacobi(Tnm1, Tn, Sp, alph, dx, dy, dz, dt, nx, ny, nz)
         alphW = 0.5*(getDiffusivity(Tn(row,col-1,lay)) + alphP);
         alphN = 0.5*(getDiffusivity(Tn(row+1,col,lay)) + alphP);
         alphS = 0.5*(getDiffusivity(Tn(row-1,col,lay)) + alphP);
-        alphU = 0.5*(getDiffusivity(Tn(row,col,lay+1)) + alphP);
+        if (lay < nz)
+          alphU = 0.5*(getDiffusivity(Tn(row,col,lay+1)) + alphP);
+        else
+          alphU = alphP;
+        end
+        %alphU = 0.5*(getDiffusivity(Tn(row,col,lay+1)) + alphP);
         alphD = 0.5*(getDiffusivity(Tn(row,col,lay-1)) + alphP);
-        
+
+        % assign neighboring temperatures
+        % TODO: do this for all directions
+        if (lay < nz)
+          TU = Tn(row, col,lay+1);
+        else
+          TU = Tn(row, col,lay);
+        end
+
         % determine neighbor coefficients
         aE = alphE*Aew/dx;
         aW = alphW*Aew/dx;
@@ -30,19 +43,19 @@ function [Tnp1] = nonlinJacobi(Tnm1, Tn, Sp, alph, dx, dy, dz, dt, nx, ny, nz)
         aS = alphS*Ans/dy;
         aU = alphU*Aud/dz;
         aD = alphD*Aud/dz;
-        aP = aE + aW + aN + aS + aU + aD- Sp(row,col);
+        aP = aE + aW + aN + aS + aU + aD- Sp(row,col,lay);
 
         Tnp1(row,col,lay) = 1/(1+dt/Vol*aP)*(...
           (1-dt/Vol*aP)*Tnm1(row,col,lay) +...
           (aE*Tn(row, col+1,lay) + aW*Tn(row, col-1,lay) +...
-          aU*Tn(row, col,lay+1) + aD*Tn(row, col,lay-1) +...
+          aU*TU + aD*Tn(row, col,lay-1) +...
           aN*Tn(row+1, col,lay) + aS*Tn(row-1, col,lay))*(2*dt/Vol));
         % TODO: experiment with SOR
         % TODO: add face source term for convective flux
       end
     end
   end
-  
+
   % maintain boundary conditions
   Tnp1(:,1, :) = Tn(:,1, :);
   Tnp1(:,nx, :) = Tn(:,nx, :);

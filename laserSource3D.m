@@ -32,10 +32,10 @@ classdef laserSource3D
       obj.m_startY = startY;
       obj.m_startTime = startTime;
     end
-    function gridFlux = getFaceFluxAtTime(obj, t, gridFlux)
+    function modGridFlux = getFaceFluxAtTime(obj, t, gridFlux)
       dTime = t - obj.m_startTime;
-      laserPosX = (obj.m_speed*dTime)*cos(obj.m_angle);
-      laserPosY = (obj.m_speed*dTime)*sin(obj.m_angle);
+      laserPosX = (obj.m_speed*dTime)*cos(obj.m_angle) + obj.m_startX;
+      laserPosY = (obj.m_speed*dTime)*sin(obj.m_angle) + obj.m_startY;
       xIdx = min(obj.m_nx, round(laserPosX/obj.m_dx) + 1);
       yIdx = min(obj.m_ny, round(laserPosY/obj.m_dy) + 1);
 
@@ -46,9 +46,10 @@ classdef laserSource3D
       yEndIdx = min(obj.m_ny, round((laserPosY + 0.5*obj.m_diameter)/obj.m_dy));
 
       k = obj.m_nz; % TODO: modify to attenuate with z
+      modGridFlux = gridFlux;
       for j=yStartIdx:yEndIdx
         for i=xStartIdx:xEndIdx
-          gridFlux(j, i, k) = gridFlux(j, i, k) + obj.m_fluxDens;
+          modGridFlux(j, i, k) = gridFlux(j, i, k) + obj.m_fluxDens;
         end
       end
     end % getFaceFluxAtTime
