@@ -116,7 +116,7 @@ if (numDim == 2)
 elseif (numDim == 3)
   Sp = zeros(ny, nx, nz);
   speed = 0.1;
-  angle = 0.0;
+  angle = 0.5*pi;
   diameter = 0.02;
   power = 10;
   fluxDens = power*(dx*dy*dz);
@@ -124,8 +124,14 @@ elseif (numDim == 3)
   startX = 0;
   startY = 0.5*Ly;
   startTime = 0;
-  laser1 = laserSource3D(nx, ny, nz, dx, dy, dz, speed, angle, diameter, ...
-      fluxDens, startX, startY, startTime)
+  laser1 = laserSource3D(nx, ny, nz, dx, dy, dz, 0.7*speed, angle, diameter, ...
+      fluxDens, 3*dx, 0, startTime)
+  laser2 = laserSource3D(nx, ny, nz, dx, dy, dz, 1*speed, angle, diameter, ...
+      fluxDens, 0.333*Lx, 0, startTime)
+  laser3 = laserSource3D(nx, ny, nz, dx, dy, dz, 1.2*speed, angle, diameter, ...
+      fluxDens, 0.6667*Lx, 0, startTime)
+  laser4 = laserSource3D(nx, ny, nz, dx, dy, dz, 1.7*speed, angle, diameter, ...
+      fluxDens, Lx-3*dx*dx, 0, startTime)
 end
 
 tic
@@ -139,6 +145,9 @@ while dTV >= tol
   elseif (numDim == 3)
     Sp = zeros(ny, nx, nz);
     Sp = laser1.getFaceFluxAtTime(time*dt, Sp);
+    Sp = laser2.getFaceFluxAtTime(time*dt, Sp);
+    Sp = laser3.getFaceFluxAtTime(time*dt, Sp);
+    Sp = laser4.getFaceFluxAtTime(time*dt, Sp);
   end
 
   % call solver %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -177,7 +186,7 @@ while dTV >= tol
 
   % plot results %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   figure(1)
-  Tmax = 950;
+  Tmax = 700;
   %Tmax = max(max(Tnp1));
   if (numDim==2)
     contourf(Tnp1(:,:), [0.99*Tmax 0.98*Tmax 0.96*Tmax 0.93*Tmax 0.90*Tmax 0.88*Tmax 0.84*Tmax ...
@@ -185,10 +194,10 @@ while dTV >= tol
       0.45*Tmax  0.40*Tmax 0.34*Tmax min(min(Tnp1))]);
   elseif (numDim==3)
     Tplane = squeeze(Tnp1(:, :, nz));
-    contourf(Tplane)
-%    contourf(Tplane, [0.99*Tmax 0.98*Tmax 0.96*Tmax 0.93*Tmax 0.90*Tmax 0.88*Tmax 0.84*Tmax ...
-%      0.8*Tmax 0.75*Tmax 0.7*Tmax 0.65*Tmax 0.6*Tmax 0.55*Tmax 0.50*Tmax ...
-%      0.45*Tmax]);
+%    contourf(Tplane)
+    contourf(Tplane, [0.99*Tmax 0.98*Tmax 0.96*Tmax 0.93*Tmax 0.90*Tmax 0.88*Tmax 0.84*Tmax ...
+      0.8*Tmax 0.75*Tmax 0.7*Tmax 0.65*Tmax 0.6*Tmax 0.55*Tmax 0.50*Tmax ...
+      0.45*Tmax Tinit]);
 %    contourf(Tplane, [0.99*Tmax 0.98*Tmax 0.96*Tmax 0.93*Tmax 0.90*Tmax 0.88*Tmax 0.84*Tmax ...
 %      0.8*Tmax 0.75*Tmax 0.7*Tmax 0.65*Tmax 0.6*Tmax 0.55*Tmax 0.50*Tmax ...
 %      0.45*Tmax  0.40*Tmax 0.34*Tmax min(min(Tnp1))]);
